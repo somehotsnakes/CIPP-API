@@ -3,13 +3,15 @@ using namespace System.Net
 Function Invoke-ListFunctionStats {
     <#
     .FUNCTIONALITY
-    Entrypoint
+        Entrypoint
+    .ROLE
+        CIPP.Core.Read
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
 
-    $APIName = $TriggerMetadata.FunctionName
-    Write-LogMessage -user $request.headers.'x-ms-client-principal' -API $APINAME -message 'Accessed this API' -Sev 'Debug'
+    $APIName = $Request.Params.CIPPEndpoint
+    Write-LogMessage -headers $Request.Headers -API $APINAME -message 'Accessed this API' -Sev 'Debug'
 
     # Write to the Azure Functions log stream.
     Write-Host 'PowerShell HTTP trigger function processed a request.'
@@ -36,7 +38,7 @@ Function Invoke-ListFunctionStats {
         }
         $Table = Get-CIPPTable -tablename 'CippFunctionStats'
 
-        if (!$PartitionKey) { $PartitionKey = 'Queue' }
+        if (!$PartitionKey) { $PartitionKey = 'Durable' }
         if (![string]::IsNullOrEmpty($TenantFilter) -and $TenantFilter -ne 'AllTenants') {
             $TenantQuery = " and (tenant eq '{0}' or Tenant eq '{0}' or Tenantid eq '{0}' or tenantid eq '{0}')" -f $TenantFilter
         } else {
