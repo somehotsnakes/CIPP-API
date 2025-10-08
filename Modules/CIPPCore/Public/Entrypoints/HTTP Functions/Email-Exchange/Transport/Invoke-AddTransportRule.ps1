@@ -1,9 +1,7 @@
-using namespace System.Net
-
-Function Invoke-AddTransportRule {
+function Invoke-AddTransportRule {
     <#
     .FUNCTIONALITY
-        Entrypoint
+        Entrypoint,AnyTenant
     .ROLE
         Exchange.TransportRule.ReadWrite
     #>
@@ -17,6 +15,15 @@ Function Invoke-AddTransportRule {
     $RequestParams = $Request.Body.PowerShellCommand | ConvertFrom-Json | Select-Object -Property * -ExcludeProperty GUID, HasSenderOverride, ExceptIfHasSenderOverride, ExceptIfMessageContainsDataClassifications, MessageContainsDataClassifications
 
     $Tenants = ($Request.body.selectedTenants).value
+
+    $AllowedTenants = Test-CippAccess -Request $Request -TenantList
+
+    if ($AllowedTenants -ne 'AllTenants') {
+        $AllTenants = Get-Tenants -IncludeErrors
+        $AllowedTenantList = $AllTenants | Where-Object { $_.customerId -in $AllowedTenants }
+        $Tenants = $Tenants | Where-Object { $_ -in $AllowedTenantList.defaultDomainName }
+    }
+
     $Result = foreach ($tenantFilter in $tenants) {
         $Existing = New-ExoRequest -ErrorAction SilentlyContinue -tenantid $tenantFilter -cmdlet 'Get-TransportRule' -useSystemMailbox $true | Where-Object -Property Identity -EQ $RequestParams.name
         try {
@@ -39,8 +46,7 @@ Function Invoke-AddTransportRule {
         }
     }
 
-    # Associate values to output bindings by calling 'Push-OutputBinding'.
-    Push-OutputBinding -Name Response -Value ([HttpResponseContext]@{
+    return ([HttpResponseContext]@{
             StatusCode = [HttpStatusCode]::OK
             Body       = @{Results = @($Result) }
         })
